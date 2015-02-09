@@ -1,11 +1,11 @@
 @doc "Generate a simple adjacency list graph representation from a symmetric or Hermitian sparse matrix"->
-function Graphs.simple_adjlist{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti})
+function Graphs.simple_adjlist(S::SparseMatrixCSC)
     issym(S) || ishermitian(S) || error("S must be symmetric or Hermitian")
     n = size(S,1)
     colpt = S.colptr
     nedge = 0
 
-    alist = [@compat sizehint!(Ti[],colpt[j+1]-colpt[j]) for j in 1:n]
+    alist = [@compat sizehint!(Int[],colpt[j+1]-colpt[j]) for j in 1:n]
     for j in 1:n
         for k in colpt[j]:(colpt[j+1]-1)
             i = S.rowval[k]
@@ -16,6 +16,15 @@ function Graphs.simple_adjlist{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti})
         end
     end
     SimpleAdjacencyList(false,1:n,nedge,alist)
+end
+
+@doc "Convert a partition from vertexSep into a vector of 3 IntSets"->
+function intsetv(part::Vector)
+    res = [IntSet() for _ in 1:3]
+    for i in 1:length(part)
+        push!(res[part[i]+1],i)
+    end
+    res
 end
 
 @doc """Create a permutation from the partition in `part`.
