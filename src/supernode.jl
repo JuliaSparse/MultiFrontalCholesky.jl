@@ -14,7 +14,7 @@ type Supernode
             this.parent = parent
         end
         
-        struct_set = Set{Int}()
+        struct_set = IntSet()
         
         # Check if this diagonal block is small enough to treat as dense
         size = length(indices)
@@ -76,15 +76,7 @@ type Supernode
                 end
             end
         end
-        # Flatten the set into a vector
-        this.struct = Array(Int,length(struct_set))
-        k = 1
-        for j in struct_set
-            this.struct[k] = j
-            k += 1
-        end
-        sort!(this.struct)
-        
+        this.struct = collect(struct_set)
         this
     end
 end

@@ -1,9 +1,16 @@
 module MultiFrontalCholesky
     using Compat,Graphs,Metis
 
-    export Front,
+    if VERSION < v"0.4-"
+        using Docile                    # for @doc macro
+    end
+
+    export Cholesky!,
+           Front,
            RHSNode,
-           Supernode
+           Supernode,
+           Solve,
+           laplacian2d                  # generate test matrices
 
     const leafSize = 64
            
