@@ -18,76 +18,59 @@ function Graphs.simple_adjlist(S::SparseMatrixCSC)
     SimpleAdjacencyList(false,1:n,nedge,alist)
 end
 
-@doc "Convert a partition from vertexSep into a vector of 3 IntSets"->
-function intsetv(part::Vector)
-    res = [IntSet() for _ in 1:3]
+immutable PartSet
+    left::IntSet
+    right::IntSet
+    center::IntSet
+end
+
+function PartSet(part::Vector)
+    l = IntSet(); r = IntSet(); c = IntSet()
     for i in 1:length(part)
-        push!(res[part[i]+1],i)
+        0 <= (p = part[i]) <= 2 || error("part[$i] = $(part[i]) should be in [0,1,2]")
+        push!(p == 0 ? l : (p == 1 ? r : c), i)
     end
-    res
+    PartSet(l,r,c)
 end
 
-@doc """Create a permutation from the partition in `part`.
+@doc "bisect the graph g using a vertex separator from Metis"->
+function bisect(g::SimpleAdjacencyList)
+    ps = PartSet(vertexSep(g)[2])
+                                        # create a permutation from ps
+    p = vcat(collect(ps.left),collect(ps.right),collect(ps.center))
+    invp = invperm(p)                   # also checks that p is a permutation
 
-`sizes` is redundant but already calculated
-"""->
-function partToPerm(sizes,part)
-    offsets = cumsum(vcat(0,sizes))
-    
-    p = zeros(part)
-    for j in 1:length(p)
-        pv = part[j]
-        p[offsets[pv+1] += 1] = j
-    end
-    
-    p
-end
+    nL = length(ps.left)
+    nR = length(ps.right)
+    nLR = nL + nR
+    alistL = [Int[] for _ in 1:nL]
+    alistR = [Int[] for _ in 1:nR]
+    nedgeL = nedgeR = 0
 
-@doc "Bisect a graph using the partition created by vertexSep"->
-function bisect(g)
-    n = length(g.vertices)
-    gPruned = simple_adjlist(n,is_directed=false)
-    for s=1:n
-        for t in g.adjlist[s]
-            if t > s && t <= n
-                add_edge!(gPruned,s,t)
-            end
-        end
-    end 
-    sizes, part = vertexSep(gPruned)
-    p = partToPerm(sizes,part)
-    p_inv = invperm(p)
-    
-    sizeL = Int(sizes[1])
-    sizeR = Int(sizes[2])
-    
-    gL = simple_adjlist(Int(sizeL),is_directed=true)
-    gR = simple_adjlist(Int(sizeR),is_directed=true)
-    for s=1:n
-        if part[s] == 0
-            sMap = Int(p_inv[s])
-            for t in g.adjlist[s]
-                if t <= n
-                    tMap = Int(p_inv[t])
-                    add_edge!(gL,sMap,tMap)
-                else
-                    add_edge!(gL,sMap,t)
-                end
-            end
-        elseif part[s] == 1
-            sMap = Int(p_inv[s]-sizeL)
-            for t in g.adjlist[s]
-                if t <= n
-                    tMap = Int(p_inv[t]-sizeL)
-                    add_edge!(gR,sMap,tMap)
-                else
-                    add_edge!(gR,sMap,t-sizeL)
-                end
+    for i in 1:nL                       # assemble gL
+        ii = p[i]
+        for j in g.adjlist[ii]
+            nL < (jj = invp[j]) <= nLR && error("ps does not partition g")
+            if jj < nL # omit edges between elements of ps.left and ps.center
+                push!(alistL[i],jj)
+                jj > i && (nedgeL += 1)
             end
         end
     end
     
-    gL, gR, p, p_inv
+    for i in 1:nR                       # assemble gR
+        ii = p[nL + i]
+        for j in g.adjlist[ii]
+            (jj = invp[j]) <= nL && error("ps does not partition g")
+            if jj < nLR
+                jj -= nL
+                push!(alistR[i],jj)
+                jj > i && (nedgeR += 1)
+            end
+        end
+    end
+    SimpleAdjacencyList(false,1:nL,nedgeL,alistL),
+    SimpleAdjacencyList(false,1:nR,nedgeR,alistR),p,invp
 end
 
 @doc "Push i, j and v onto I, J and V, respectively"->
