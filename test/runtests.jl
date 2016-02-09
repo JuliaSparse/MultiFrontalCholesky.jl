@@ -66,8 +66,6 @@ MultiFrontalCholesky.Cholesky!(front)
 # Solve Ax = b
 sol = MultiFrontalCholesky.Solve(front,root,p,b)
 println("Sol quality : ", norm(A*sol-b)/norm(b)) 
-#sol2 = A\b 
-#println("Done :-)")
 
 
 
