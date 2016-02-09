@@ -14,7 +14,8 @@ function Graphs.simple_adjlist{Tv,Ti}(S::SparseMatrixCSC{Tv,Ti})
             end
         end
     end
-    SimpleAdjacencyList(false,1:n,nedge,alist)
+    g = SimpleAdjacencyList(false,1:n,nedge,alist)
+    return g
 end
 
 function partToPerm(sizes,part)
@@ -31,14 +32,19 @@ end
 
 function bisect(g)
     n = length(g.vertices)
-    gPruned = simple_adjlist(n,is_directed=false)
+
+    nedges = 0 
+    alist = [sizehint!(Int[],length(g.adjlist[s])) for s in 1:n] ;
     for s=1:n
         for t in g.adjlist[s]
-            if t > s && t <= n
-                add_edge!(gPruned,s,t)
+            if t <= n
+                push!(alist[s],t) 
+                t > s && (nedges += 1)
             end
         end
     end 
+    gPruned = SimpleAdjacencyList(false,1:n,nedges,alist) 
+
     sizes, part = vertexSep(gPruned)
     p = partToPerm(sizes,part)
     p_inv = invperm(p)
@@ -46,31 +52,37 @@ function bisect(g)
     sizeL = Int(sizes[1])
     sizeR = Int(sizes[2])
     
-    gL = simple_adjlist(Int(sizeL),is_directed=true)
-    gR = simple_adjlist(Int(sizeR),is_directed=true)
+    alistL = [sizehint!(Int[],length(g.adjlist[s])) for s in 1:n] ;
+    alistR = [sizehint!(Int[],length(g.adjlist[s])) for s in 1:n] ;
+    nedgesL = 0 
+    nedgesR = 0 
     for s=1:n
         if part[s] == 0
             sMap = Int(p_inv[s])
             for t in g.adjlist[s]
                 if t <= n
-                    tMap = Int(p_inv[t])
-                    add_edge!(gL,sMap,tMap)
+                    tMap = Int(p_inv[t])                    
+                    push!(alistL[sMap],tMap) 
                 else
-                    add_edge!(gL,sMap,t)
+                    push!(alistL[sMap],t)
                 end
+                nedgesL += 1
             end
         elseif part[s] == 1
             sMap = Int(p_inv[s]-sizeL)
             for t in g.adjlist[s]
                 if t <= n
                     tMap = Int(p_inv[t]-sizeL)
-                    add_edge!(gR,sMap,tMap)
+                    push!(alistR[sMap],tMap)
                 else
-                    add_edge!(gR,sMap,t-sizeL)
+                    push!(alistR[sMap],t-sizeL)
                 end
+                nedgesR += 1
             end
         end
     end
-    
+    gL = SimpleAdjacencyList(true,1:Int(sizeL),nedgesL,alistL) 
+    gR = SimpleAdjacencyList(true,1:Int(sizeR),nedgesR,alistR) 
+
     gL, gR, p, p_inv
 end

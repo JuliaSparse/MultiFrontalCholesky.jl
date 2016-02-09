@@ -125,7 +125,61 @@ function Cholesky!{F}(front::Front{F})
         # TODO: Clear front.children[c].BR
     end
     
-    cholfact!(FTL,:L)
-    BLAS.trsm!('R','L','T','N',1.,FTL,FBL)
-    BLAS.syrk!('L','N',-1.,FBL,1.,FBR)
+
+    # (Lii,Dii) = LDLt(Aii)    
+    ldlt!(FTL) # Check
+    # Lij = Aij * Lii^(-H) * Dii^(-1)    
+    BLAS.trsm!('R','L','T','U',1.,FTL,FBL) # 'U' assumes FTL is unit triangular (since we have D on diagonal)
+    for i = 1:size(FBL,2)
+        FBL[:,i] = FBL[:,i] / FTL[i,i]    
+    end
+    gsyrk!(FBR,FBL,FTL)
+    
 end
+
+
+
+
+# From http://www.mathworks.com/matlabcentral/fileexchange/47-ldlt/content/ldlt/ldlt.m, under BSD license
+# http://www.mathworks.com/matlabcentral/fileexchange/view_license?file_info_id=47
+# Updathe the lower-triangular part of A with, on the diagonal, d, and lower, L, such that
+# A = LDL' 
+# where L is unit-lower-triangular
+#       D is diagonal
+# This function does not care about the strict-upper part of A
+function ldlt!(A)
+    n = size(A,1)
+    size(A,2) == n || error("A should be square")
+    v = zeros(Float64,n,1)
+    for j = 1:n
+        for i = 1:j-1
+            v[i,1] = A[j,i]*A[i,i]
+        end
+        A[j,j] = A[j,j] - (A[j,1:j-1] * v[1:j-1,1])[1,1]
+        A[j+1:n,j] = (A[j+1:n,j] - A[j+1:n,1:j-1]*v[1:j-1,1])/A[j,j] ;
+    end
+end
+
+# Computes
+# A := A - B*D*B^H
+# where A is n x n
+#       B is n x k
+#       D is k x k
+# D is stored on the diagonal of input D
+# B is full
+# A is updated only in the lower part
+function gsyrk!(A,B,D)
+    n = size(A,1)
+    size(A,2) == n || error("A should be square")
+    size(B,1) == n || error("Wrong number of rows in B")
+    k = size(B,2)
+    (size(D,1) == k && size(D,2) == k) || error("D should be k x k")
+    for i = 1:n
+        for j = 1:i
+            for l = 1:k
+                A[i,j] = A[i,j] - B[i,l]*B[j,l]*D[l,l]
+            end
+        end
+    end
+end
+
