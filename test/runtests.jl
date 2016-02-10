@@ -1,22 +1,5 @@
 using MultiFrontalCholesky, Graphs
 
-function sparseToAdj(M)
-    if M.m != M.n
-        error("Expected a symmetric matrix")
-    end
-    n = M.n
-    g = simple_adjlist(n,is_directed=false)
-    for j=1:n
-        for k=M.colptr[j]:M.colptr[j+1]-1
-            i = M.rowval[k]
-            if i > j
-                add_edge!(g,i,j)
-            end
-        end
-    end
-    g
-end
-
 function appendel(I,J,V,i,j,v)
     push!(I,i)
     push!(J,j)
@@ -46,7 +29,7 @@ leafSize = 64;
 
 A = laplacian2d(nx,ny)
 
-g = sparseToAdj(A);
+g = simple_adjlist(A);
 b = randn(nx*ny,1) ;
 p = collect(1:size(A,1))
 
