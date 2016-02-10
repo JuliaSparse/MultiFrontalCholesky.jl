@@ -138,16 +138,13 @@ function Cholesky!{F}(front::Front{F})
 end
 
 
-
-
-# From http://www.mathworks.com/matlabcentral/fileexchange/47-ldlt/content/ldlt/ldlt.m, under BSD license
-# http://www.mathworks.com/matlabcentral/fileexchange/view_license?file_info_id=47
-# Updathe the lower-triangular part of A with, on the diagonal, d, and lower, L, such that
+# Updates the lower-triangular part of A with, on the diagonal, d, and lower, L, such that
 # A = LDL' 
 # where L is unit-lower-triangular
 #       D is diagonal
 # This function does not care about the strict-upper part of A
 function ldlt!(A)
+# From Golub & Van Loan, 4th edition, page 158
     n = size(A,1)
     size(A,2) == n || error("A should be square")
     v = zeros(Float64,n,1)
@@ -182,4 +179,3 @@ function gsyrk!(A,B,D)
         end
     end
 end
-
