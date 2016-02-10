@@ -17,27 +17,28 @@ function sparseToAdj(M)
     g
 end
 
+function appendel(I,J,V,i,j,v)
+    push!(I,i)
+    push!(J,j)
+    push!(V,v)
+end
+
 function laplacian2d(nx,ny)
-    M = speye(nx*ny)
-    for x=1:nx
-        for y=1:ny
-            s = x+(y-1)*nx
-            M[s,s] = 4
-            if x > 1 
-                M[s,s-1] = -1
-            end
-            if x < nx 
-                M[s,s+1] = -1 
-            end
-            if y > 1
-                M[s,s-nx] = -1 
-            end
-            if y < ny 
-                M[s,s+nx] = -1
-            end
+    n = nx*ny
+    nzest = 5*n
+    I = sizehint!(Int32[],nzest)
+    J = sizehint!(Int32[],nzest)
+    V = sizehint!(Float64[],nzest)
+    for x in 1:nx
+        for y in 1:ny
+            s = x + (y-1)*nx
+            appendel(I,J,V,s,s,2)
+            x > 1 && appendel(I,J,V,s,s-1,-1)
+            y > 1 && appendel(I,J,V,s,s-nx,-1)
         end
     end
-    M
+    A = sparse(I,J,V,n,n)
+    A + A'
 end
 
 (nx,ny) = (100,100)
