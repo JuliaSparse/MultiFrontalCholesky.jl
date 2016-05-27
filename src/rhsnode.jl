@@ -75,9 +75,15 @@ function ForwardSolve!{F}(front::Front{F},snode::Supernode,XNode::RHSNode{F})
     
     LT = sub(front.L,1:nodeSize,1:nodeSize)
     LB = sub(front.L,nodeSize+1:totalSize,1:nodeSize)
-    BLAS.trsm!('L','L','N','N',1.,LT,XNode.T)
+    
+    # BLAS.trsm!('L','L','N','N',1.,LT,XNode.T)
+    # BLAS.gemm!('N','N',-1.,LB,XNode.T,1.,XNode.B)
+
+    BLAS.trsm!('L','L','N','U',1.,LT,XNode.T) # 'U' indicates ones on the diagonal (-> skip diag filled with D)
     BLAS.gemm!('N','N',-1.,LB,XNode.T,1.,XNode.B)
+
 end
+
 function BackwardSolve!{F}(front::Front{F},snode::Supernode,XNode::RHSNode{F})
     totalSize, nodeSize = size(front.L)
     nodeSize, numRHS = size(XNode.T)
@@ -116,13 +122,31 @@ function BackwardSolve!{F}(front::Front{F},snode::Supernode,XNode::RHSNode{F})
     
     LT = sub(front.L,1:nodeSize,1:nodeSize)
     LB = sub(front.L,nodeSize+1:totalSize,1:nodeSize)
+    
+    # BLAS.gemm!('T','N',-1.,LB,XNode.B,1.,XNode.T)
+    # BLAS.trsm!('L','L','T','N',1.,LT,XNode.T)
     BLAS.gemm!('T','N',-1.,LB,XNode.B,1.,XNode.T)
-    BLAS.trsm!('L','L','T','N',1.,LT,XNode.T)
+    BLAS.trsm!('L','L','T','U',1.,LT,XNode.T) # 'U' indicates ones on the diagonal -> skip
     
     # Recurse on the children
     num_children = length(front.children)
     for c=1:num_children
         BackwardSolve!(front.children[c],snode.children[c],XNode.children[c])
+    end
+end
+
+function DiagSolve!{F}(front::Front{F},snode::Supernode,XNode::RHSNode{F})
+
+    nodeSize, numRHS = size(XNode.T)
+
+    num_children = length(front.children)
+    for c=1:num_children
+        DiagSolve!(front.children[c],snode.children[c],XNode.children[c])
+    end
+
+    LT = sub(front.L,1:nodeSize,1:nodeSize)
+    for row=1:nodeSize
+        XNode.T[row,:] = XNode.T[row,:] / LT[row,row] 
     end
 end
 
@@ -133,6 +157,7 @@ function Solve{F}(front::Front{F},root::Supernode,p::Array{Int},B::StridedMatrix
     #
     XNodal = RHSNode{F}(B[p,:],root)
     ForwardSolve!(front,root,XNodal)
+    DiagSolve!(front,root,XNodal)
     BackwardSolve!(front,root,XNodal)
     XPerm = Unpack(XNodal,root)
     X = XPerm[invperm(p),:]
